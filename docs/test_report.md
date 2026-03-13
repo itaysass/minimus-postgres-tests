@@ -1,234 +1,258 @@
-# PostgreSQL Image Compatibility Test Report
 
-## Summary
+# Test Report – PostgreSQL Slim Image Evaluation
 
-This report documents the compatibility testing performed between the reference PostgreSQL container image and the custom PostgreSQL image.
+## 1. Overview
 
-Images tested:
+This report summarizes the evaluation of a custom slim PostgreSQL container image compared to the reference image:
 
 Reference image:
-
 bitnami/postgresql:latest
 
-Custom image:
-
+Custom image under test:
 halex1985/postgresql:latest
 
-Testing was performed in two environments:
+The goal of the evaluation was to verify:
 
-1. OCI container runtime (Docker)
-2. Kubernetes deployment using the Bitnami PostgreSQL Helm chart
+- Functional compatibility
+- Container security posture
+- Image size optimization
+- Configuration correctness
+- Filesystem integrity
+- Metadata availability
 
----
-
-# Environment
-
-Local environment:
-
-- Windows host
-- Ubuntu (WSL)
-- Docker
-
-Kubernetes environment:
-
-- Minikube cluster
-- Helm
-- Bitnami PostgreSQL Helm chart
+Testing included both manual validation and automated tests implemented with Python and pytest.
 
 ---
 
-# Test Results Overview
+# 2. Test Environment
 
-| Test | Reference Image | Custom Image |
-|-----|-----|-----|
-OCI startup | PASS | FAIL |
-Helm deployment | PASS | PASS |
-Database connectivity | PASS | PASS |
-SQL operations | PASS | PASS |
-Bitnami init directory compatibility | PASS | FAIL |
-
----
-
-# Test 1 — OCI Container Startup
-
-## Objective
-
-Verify that the PostgreSQL container starts correctly using Docker.
-
-## Reference Image
-
-Command:
-
-docker run --rm -d \
-  --name pg-ref \
-  -e POSTGRESQL_USERNAME=testuser \
-  -e POSTGRESQL_PASSWORD=testpass123 \
-  -e POSTGRESQL_DATABASE=testdb \
-  -p 5432:5432 \
-  bitnami/postgresql:latest
-
-Result:
-
-Container starts successfully and PostgreSQL initializes correctly.
+| Component | Version |
+|---|---|
+| OS | Ubuntu (WSL) |
+| Docker | Latest |
+| Kubernetes | Local cluster |
+| Helm | v3 |
+| Python | 3.x |
+| Test Framework | pytest |
 
 ---
 
-## Custom Image
+# 3. Test Execution Summary
 
-Command:
-
-docker run --rm -d \
-  --name pg-test \
-  -e POSTGRESQL_USERNAME=testuser \
-  -e POSTGRESQL_PASSWORD=testpass123 \
-  -e POSTGRESQL_DATABASE=testdb \
-  -p 5433:5432 \
-  halex1985/postgresql:latest
-
-Result:
-
-Container exits immediately.
-
-Observed error:
-
-mkdir: cannot create directory '/bitnami/postgresql/data': Permission denied
-
-### Root Cause
-
-Directory `/bitnami/postgresql` is not writable by the runtime user (`uid 1001`), preventing database initialization.
-
-### Severity
-
-P1 — container cannot start in OCI mode.
+| Test Category | Result |
+|---|---|
+| Functional tests | Passed |
+| Kubernetes / Helm compatibility | Passed |
+| Image size reduction | Passed |
+| Security tests | Failed |
+| Image integrity tests | Failed |
+| Metadata validation | Passed |
 
 ---
 
-# Test 2 — Helm Deployment
+# 4. Image Size Comparison
 
-## Objective
+| Image | Size |
+|---|---|
+| Reference Image | ~389 MB |
+| Custom Image | ~122 MB |
 
-Verify compatibility with the Bitnami PostgreSQL Helm chart.
+Size reduction achieved:
 
-## Reference Image
+~67% smaller than the reference image.
 
-Command:
-
-helm install pg-ref bitnami/postgresql
-
-Result:
-
-Pod starts successfully and database initializes normally.
+This confirms the slim image successfully achieves its main objective of reducing image size.
 
 ---
 
-## Custom Image
+# 5. Functional Validation
 
-Command:
+The following functionality was validated successfully:
 
-helm install pg-test bitnami/postgresql \
-  --set image.repository=halex1985/postgresql \
-  --set image.tag=latest \
-  --set global.security.allowInsecureImages=true
+- Container starts successfully
+- PostgreSQL initializes correctly
+- Database and user are created using environment variables
+- SQL operations function normally
+- Helm chart deployment works with the custom image
 
-Result:
+Example SQL operations tested:
 
-Pod starts successfully and becomes ready.
-
----
-
-# Test 3 — Database Connectivity
-
-Connectivity verified using a PostgreSQL client pod.
-
-Command:
-
-psql -h pg-test-postgresql -U testuser -d testdb -c "SELECT 1;"
-
-Result:
-
- ?column?
-----------
-        1
-(1 row)
-
-Database connectivity is functional.
-
----
-
-# Test 4 — SQL Operations
-
-SQL operations were verified.
-
-Create table:
-
+SELECT version();
 CREATE TABLE smoke(id INT);
-
-Insert row:
-
 INSERT INTO smoke VALUES (1);
-
-Query table:
-
 SELECT * FROM smoke;
 
-Result:
-
- id
-----
-  1
-
-Database operations function normally.
+All operations executed successfully.
 
 ---
 
-# Test 5 — Bitnami Initialization Script Compatibility
+# 6. Security Findings
 
-The Bitnami PostgreSQL container supports initialization scripts via the following directories:
+## Issue 1 – Secret Leakage in Logs
 
-/docker-entrypoint-preinitdb.d
-/docker-entrypoint-initdb.d
+Severity: High
 
-These directories should be readable by the container runtime user.
+The container startup script enables shell tracing (`set -x`).  
+As a result, sensitive environment variables are printed in container logs.
 
-Observed behavior in the custom image:
+Example log output:
 
-Logs contain permission errors:
+POSTGRESQL_PASSWORD=SuperSecret123
 
-find: '/docker-entrypoint-preinitdb.d/': Permission denied
-find: '/docker-entrypoint-initdb.d/': Permission denied
+This exposes secrets through container logs which may be collected by logging systems or monitoring tools.
 
-### Impact
+Impact:
 
-Initialization scripts placed in these directories will not be executed.
+- Password exposure
+- Credential leakage risk
+- Violates container security best practices
 
-This breaks compatibility with the expected Bitnami initialization mechanism.
+Recommendation:
 
-### Severity
-
-P2 — Helm deployment works but initialization hooks are broken.
+Disable shell debugging in entrypoint scripts or mask sensitive variables before printing logs.
 
 ---
 
-# Additional Observation
+## Issue 2 – Unsafe Default Configuration
 
-The custom image sets:
+Severity: Medium
+
+The container includes the environment variable:
 
 ALLOW_EMPTY_PASSWORD=yes
 
-by default, which weakens the container security configuration.
+Although a warning is printed, enabling this variable allows containers to run without a password if misconfigured.
 
-### Severity
+Impact:
 
-P2 — unsafe default configuration.
+- Potential insecure deployment configuration
+- Increased risk of unauthorized database access
+
+Recommendation:
+
+Remove this variable or enforce password requirements during startup.
 
 ---
 
-# Conclusion
+# 7. Image Integrity Findings
 
-The custom PostgreSQL image contains several compatibility issues:
+## Issue 3 – PostgreSQL Version Mismatch
 
-1. The container fails to start in OCI environments due to incorrect filesystem permissions.
-2. The container cannot access Bitnami initialization directories, breaking Helm chart compatibility.
-3. The image enables an unsafe default configuration.
+Severity: Medium
 
-Although the database starts successfully under Helm due to mounted volumes masking the permission issue, the image is not fully compatible with the Bitnami PostgreSQL container contract.
+The custom image includes PostgreSQL version:
+
+postgres (PostgreSQL) 18.1
+
+While the reference image uses:
+
+postgres (PostgreSQL) 18.3
+
+Impact:
+
+- Potential compatibility issues
+- Missing security patches
+- Unexpected behavior compared to reference image
+
+Recommendation:
+
+Ensure the slim image is built using the same upstream PostgreSQL version as the reference image.
+
+---
+
+## Issue 4 – Missing PostgreSQL Extensions
+
+Severity: Medium
+
+The reference image contains many PostgreSQL extensions under:
+
+/opt/bitnami/postgresql/share/extension
+
+However, the custom slim image contains **zero extensions** in this directory.
+
+Impact:
+
+Applications that rely on extensions (such as pg_trgm, postgis, etc.) will fail.
+
+Recommendation:
+
+Either include commonly used extensions or document that the slim image intentionally removes them.
+
+---
+
+## Issue 5 – Invalid Environment Variable
+
+Severity: Low
+
+The custom image defines the environment variable:
+
+BUG=/bitnami/postgresql/bug
+
+However, the referenced path does not exist.
+
+Impact:
+
+Likely leftover debug configuration from the image build process.
+
+Recommendation:
+
+Remove unused environment variables to avoid confusion.
+
+---
+
+# 8. Positive Findings
+
+The custom image demonstrates several improvements:
+
+- Significant image size reduction (~67%)
+- Container runs as non-root user (UID 1001)
+- Logs redirected to stdout (container-friendly logging)
+- OCI metadata labels present
+- Custom image analytics labels provided
+
+Example custom labels:
+
+io.minimus.images.galleryURL  
+io.minimus.images.line  
+io.minimus.images.version  
+
+These labels provide useful metadata for image analytics platforms.
+
+---
+
+# 9. Automation
+
+Automation tests were implemented using Python and pytest.
+
+The automated tests validate:
+
+- Image size sanity check
+- Secret leakage detection in container logs
+- PostgreSQL version comparison
+- Invalid environment variable detection
+
+Automation test directory:
+
+tests/
+
+Tests can be executed using:
+
+pytest
+
+---
+
+# 10. Conclusion
+
+The slim image successfully achieves its primary objective of reducing container size while maintaining core PostgreSQL functionality.
+
+However, several issues were identified:
+
+1. Sensitive credentials printed in container logs
+2. PostgreSQL version mismatch
+3. Missing PostgreSQL extensions
+4. Insecure default configuration option
+5. Invalid environment variable present
+
+These issues should be addressed to ensure full compatibility and production readiness.
+
+Overall, the image demonstrates strong potential but requires several fixes to match the stability and security posture of the reference implementation.
