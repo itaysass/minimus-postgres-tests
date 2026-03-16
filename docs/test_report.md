@@ -5,13 +5,13 @@
 This report summarizes the evaluation of the custom PostgreSQL slim image compared with the Bitnami PostgreSQL reference image.
 
 Reference image:
-
+```
 bitnami/postgresql:latest
-
+```
 Custom image:
-
+```
 halex1985/postgresql:latest
-
+```
 The evaluation included manual inspection and automated tests implemented with Python and pytest.
 
 
