@@ -7,7 +7,7 @@ This report summarizes the evaluation of the custom PostgreSQL slim image compar
 Reference image: bitnami/postgresql:latest
 Custom image: halex1985/postgresql:latest
 
-Test Environment
+Test Environment:
 Ubuntu (WSL) on Windows
 Docker
 Kubernetes (Minikube)
@@ -29,27 +29,27 @@ CREATE TABLE smoke(id INT)
 INSERT INTO smoke VALUES (1)
 SELECT * FROM smoke
 
-Identified Issues
+Identified Issues:
 
-Secret leakage in logs
-The container entrypoint runs with shell debugging enabled (set -x).
-Sensitive environment variables such as POSTGRESQL_PASSWORD appear in container logs.
+1. Secret leakage in logs:
+   The container entrypoint runs with shell debugging enabled (set -x).
+   Sensitive environment variables such as POSTGRESQL_PASSWORD appear in container logs.
 
-PostgreSQL version mismatch
-Custom image version: PostgreSQL 18.1
-Reference image version: PostgreSQL 18.3
+2. PostgreSQL version mismatch
+   Custom image version: PostgreSQL 18.1
+   Reference image version: PostgreSQL 18.3
 
-Missing PostgreSQL extensions
-The directory /opt/bitnami/postgresql/share/extension in the custom image contains no extensions while the reference image contains many.
+3. Missing PostgreSQL extensions
+   The directory /opt/bitnami/postgresql/share/extension in the custom image contains no extensions while the reference image contains many.
 
-Invalid environment variable
-The image defines BUG=/bitnami/postgresql/bug but the referenced path does not exist.
+4. Invalid environment variable
+   The image defines BUG=/bitnami/postgresql/bug but the referenced path does not exist.
 
-OCI startup failure
-The image ships /bitnami/postgresql with permissions incompatible with the non-root runtime user (uid=1001, gid=0), causing OCI startup failure when PostgreSQL attempts to create /bitnami/postgresql/data.
+5. OCI startup failure
+   The image ships /bitnami/postgresql with permissions incompatible with the non-root runtime user (uid=1001, gid=0), causing OCI startup failure when PostgreSQL attempts to create /bitnami/postgresql/data.
 
-Initialization directory permission issues:
-Helm deployment logs show permission denied errors for /docker-entrypoint-preinitdb.d and /docker-entrypoint-initdb.d, breaking Bitnami init script compatibility.
+6. Initialization directory permission issues:
+   Helm deployment logs show permission denied errors for /docker-entrypoint-preinitdb.d and /docker-entrypoint-initdb.d, breaking Bitnami init script compatibility.
 
 Positive Findings
 - significant image size reduction
@@ -58,7 +58,7 @@ Positive Findings
 - OCI metadata labels present
 - custom analytics metadata labels exist
 
-Automation
+Automation:
 Automation tests implemented with pytest validate:
 - image size sanity
 - secret leakage detection
