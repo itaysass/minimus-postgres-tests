@@ -31,8 +31,9 @@ The evaluation was performed using the following environment:
 - pytest
 
 
-## Repository Structure
-minimus-postgres-tests
+## Repository Structure:
+```
+minimus-postgres-tests:
 │
 ├── README.md
 ├── requirements.txt
@@ -45,19 +46,21 @@ minimus-postgres-tests
 ├── reference_tests.py
 ├── bug_repro_tests.py
 └── image_security_tests.py
-
+```
 ## Running the Automated Tests
 
 Install dependencies:
+```
 pip install -r requirements.txt
-
+```
 Run all tests:
+```
 pytest
-
+```
 Run a specific test file:
+```
 pytest tests/bug_repro_tests.py
-
-
+```
 
 ## Automation Coverage
 
@@ -82,10 +85,10 @@ During the evaluation several compatibility and security issues were identified:
 - Invalid environment variable referencing a non-existent path
 
 A detailed explanation of the testing approach and findings is available in:
-
+```
 docs/test_plan.md  
 docs/test_report.md
-
+```
 
 ## Conclusion
 
