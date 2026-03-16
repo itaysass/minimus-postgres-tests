@@ -72,6 +72,12 @@ The automated tests validate several aspects of the container image:
 - PostgreSQL version comparison
 - Environment variable validation
 
+Expected pass/faill of automation:
+```
+reference_tests.py - should pass
+bug_repro_tests.py - 3 fail
+bug_repro_tests.py - 1 pass, 3 fails
+```
 
 ## Key Findings
 
