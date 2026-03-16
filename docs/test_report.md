@@ -76,13 +76,13 @@ Credentials may be exposed through container logging systems.
 Severity: Medium
 
 Custom image:
-
+```
 PostgreSQL 18.1
-
+```
 Reference image:
-
+```
 PostgreSQL 18.3
-
+```
 Impact:
 
 Possible compatibility differences and missing security patches.
@@ -201,5 +201,3 @@ The slim PostgreSQL image successfully reduces container size while maintaining 
 However several compatibility and security issues were identified including credential leakage in logs, PostgreSQL version mismatch, missing extensions, filesystem permission incompatibilities and invalid configuration variables.
 
 Addressing these issues would improve compatibility and security while preserving the benefits of the slim image approach.
-```דג
-פטאש
